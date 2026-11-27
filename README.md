@@ -299,6 +299,7 @@ paths, and safety boundaries.
 | `companion pull` | Fetch `main` and fast-forward the mirror |
 | `companion context [--store DIR]` / `project` | Show resolved project, team, languages, and provenance |
 | `companion status` | Mirror, changesets, dirty files, and PR state |
+| `companion usage [--since 7d]` | Local MCP tool executions by client application and tool |
 | `companion ls [DIR] [--pending]` | List docs, optionally with active changeset state |
 | `companion cat <doc> [--rev R] [--pr N]` | Print a document from main, a revision, or a PR |
 | `companion search <query> [--all]` | Search the active overlay |
@@ -320,6 +321,35 @@ paths, and safety boundaries.
 
 Run `companion <command> --help` for flags and examples.
 
+### Check whether agents are using Companion
+
+```bash
+companion usage
+companion usage --since 7d
+```
+
+The human-readable report shows calls, errors, and last-used times by client
+application and tool. Without `--since`, it includes all recorded history.
+Positive durations such as `30m`, `24h`, and `7d` select a rolling window;
+one day means exactly 24 hours. History starts with the first recorded call,
+not installation or connection time.
+
+Client names are self-reported, not authenticated. OpenCode using a Claude
+model is still OpenCode; missing names appear as `unknown`. Only completed MCP
+tool-handler executions count: connections, discovery, SDK-rejected requests,
+resource reads, prompts, and shell-based CLI commands do not. In-flight calls
+appear when they finish.
+
+History stays in `~/.companion/usage.jsonl` (or under `COMPANION_HOME`). It stores
+only a format version, invocation timestamp, client name, tool name, and failure
+indicator, never prompts, arguments, responses, or repository paths. Reporting
+does not need an initialized store, Git, GitHub authentication, or network access.
+Recording is best effort, not an audit log: interrupted calls and recording
+failures can leave gaps, recent writes can be lost on a system crash, and the
+history grows with use. Recording failures warn on stderr without changing tool
+results. To remove history, stop the MCP clients and delete only `usage.jsonl`;
+do not remove the whole state directory or an active lock file.
+
 ## MCP tools
 
 Read: `docs_get_context`, `docs_get_guidance`, `docs_list`, `docs_search`,
@@ -340,8 +370,8 @@ cleanup tool: a human merges the PR.
 ## Safety model
 
 - `main` is read-only locally and protected on GitHub.
-- All writes happen in a changeset worktree, are committed immediately, and are
-  scanned for likely secrets before the commit.
+- All document writes happen in a changeset worktree, are committed immediately,
+  and are scanned for likely secrets before the commit.
 - Document paths reject absolute paths, traversal, `.git`, and symlink escapes.
 - `base_rev` prevents overwriting a newer edit; failed writes roll back.
 - Per-area file locks serialize Git work between concurrent CLI/MCP calls.
@@ -349,7 +379,8 @@ cleanup tool: a human merges the PR.
   refuses to push a ready PR.
 - Unpushed work is never silently deleted; cleanup/abandon require `--archive`
   or `--force`.
-- No daemon, service, polling loop, telemetry, or local network port.
+- No daemon, service, polling loop, outbound telemetry, or local network port.
+  MCP usage metadata is recorded locally for `companion usage`.
 - The secret scan is a heuristic, not a guarantee.
 
 ## Status and limitations

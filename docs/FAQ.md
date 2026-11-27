@@ -48,8 +48,12 @@ through MCP.
 ## Does companion send telemetry or open a port?
 
 No. It is a CLI and a stdio MCP server. It does not run a daemon, listen on a
-network port, or send telemetry. It talks to GitHub for the operations you
-invoke, and code indexing can invoke the local Go toolchain or `ctags`.
+network port, or send telemetry. Local MCP usage history records only invocation
+times, client/tool names, and failure indicators, with a format version.
+`companion usage --since 7d` reports that activity; see
+[usage reporting](../README.md#check-whether-agents-are-using-companion) for scope,
+storage, and limitations. It talks to GitHub for the operations you invoke, and
+code indexing can invoke the local Go toolchain or `ctags`.
 
 ## What does `companion init` do with an empty repository?
 

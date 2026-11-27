@@ -5,6 +5,13 @@ All notable changes to this project are documented here. The format follows
 [semantic versioning](https://semver.org/) with the pre-1.0 caveats in
 [VERSIONING.md](VERSIONING.md).
 
+## [Unreleased]
+
+### Added
+
+- Local MCP usage history and `companion usage [--since 7d]` to report tool
+  executions, errors, and last-used times by client application and tool.
+
 ## [0.2.0] - 2026-10-25
 
 ### Security

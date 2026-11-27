@@ -95,6 +95,7 @@ func NewRootCommand() *cobra.Command {
 		a.doctorCmd(),
 		a.versionCmd(),
 		a.mcpCmd(),
+		a.usageCmd(),
 	)
 	return root
 }
