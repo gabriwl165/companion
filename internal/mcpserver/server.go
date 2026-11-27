@@ -15,11 +15,13 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/repocompanion/companion/internal/changeset"
 	"github.com/repocompanion/companion/internal/codeindex"
+	"github.com/repocompanion/companion/internal/config"
 	"github.com/repocompanion/companion/internal/gitx"
 	"github.com/repocompanion/companion/internal/guidance"
 	"github.com/repocompanion/companion/internal/runtime"
 	"github.com/repocompanion/companion/internal/search"
 	"github.com/repocompanion/companion/internal/store"
+	"github.com/repocompanion/companion/internal/usage"
 	"github.com/repocompanion/companion/internal/version"
 )
 
@@ -41,12 +43,14 @@ type Options struct {
 	Team      string
 	Domain    string
 	Languages []string
+	Usage     *usage.Store
 }
 
 type provider struct {
-	opts Options
-	mu   sync.Mutex
-	rt   *runtime.Runtime
+	opts         Options
+	mu           sync.Mutex
+	rt           *runtime.Runtime
+	usageWarning sync.Once
 
 	rootsMu    sync.Mutex
 	roots      map[*mcp.ServerSession]string
@@ -167,6 +171,14 @@ func Run(ctx context.Context, opts Options) error {
 	if os.Getenv("GCM_INTERACTIVE") == "" {
 		_ = os.Setenv("GCM_INTERACTIVE", "never")
 	}
+	if opts.Usage == nil {
+		home, err := config.Home()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "warning: could not initialize companion usage")
+		} else {
+			opts.Usage = usage.NewStore(home)
+		}
+	}
 	server, err := NewServer(opts)
 	if err != nil {
 		return err
@@ -212,7 +224,7 @@ type docIndex struct {
 }
 
 func registerContextTools(s *mcp.Server, p *provider) {
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_get_context",
 		Description: "Entry point for doc work. Resolves the project and returns the doc index, open PRs, missing required docs, active changesets and mirror freshness. Does not create anything.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in projectIn) (*mcp.CallToolResult, any, error) {
@@ -322,7 +334,7 @@ func registerContextTools(s *mcp.Server, p *provider) {
 		MaxResults int    `json:"max_results,omitempty" jsonschema:"maximum results, default 5"`
 		Project    string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_get_guidance",
 		Description: "Entry point for coding tasks. Returns ranked patterns, ADRs and standards with validated reference implementation paths, symbols, lines and signatures when available.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in guidIn) (*mcp.CallToolResult, any, error) {
@@ -352,7 +364,7 @@ func registerContextTools(s *mcp.Server, p *provider) {
 		Cursor  string `json:"cursor,omitempty" jsonschema:"opaque pagination cursor from a previous response"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_list",
 		Description: "List documents in the current project, team, org or whole store.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in listIn) (*mcp.CallToolResult, any, error) {
@@ -393,7 +405,7 @@ func registerContextTools(s *mcp.Server, p *provider) {
 		Cursor  string `json:"cursor,omitempty" jsonschema:"opaque pagination cursor from a previous response"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_search",
 		Description: "Search with BM25 ranking, field weighting and snippets. Includes the active changeset overlay.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in searchIn) (*mcp.CallToolResult, any, error) {
@@ -433,7 +445,7 @@ func registerContextTools(s *mcp.Server, p *provider) {
 		Scope   string `json:"scope,omitempty" jsonschema:"project|team|org|all; default project"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_validate_code_refs",
 		Description: "Validate reference_impls paths at their resolved ref and provide a git-grep symbol fallback. Symbol/semantic checks depend on available providers.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in validateRefsIn) (*mcp.CallToolResult, any, error) {
@@ -483,7 +495,7 @@ func registerContextTools(s *mcp.Server, p *provider) {
 		Scope   string `json:"scope,omitempty" jsonschema:"project|team|org|all; default project"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_stale",
 		Description: "Return documents whose code references have stale fingerprints or changed after last_reviewed. Advisory only.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in staleCodeIn) (*mcp.CallToolResult, any, error) {
@@ -542,7 +554,7 @@ func registerContextTools(s *mcp.Server, p *provider) {
 		Limit   int    `json:"limit,omitempty" jsonschema:"maximum symbols; default 200"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_code_map",
 		Description: "Index the current repository with available providers and return a bounded symbol map with paths, lines, signatures and fingerprints.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in codeMapIn) (*mcp.CallToolResult, any, error) {
@@ -591,7 +603,7 @@ func registerContextTools(s *mcp.Server, p *provider) {
 		Path    string `json:"path,omitempty"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_code_find",
 		Description: "Resolve a code symbol in the current repository by qualified or short name, optionally filtered by path.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in codeFindIn) (*mcp.CallToolResult, any, error) {
@@ -619,7 +631,7 @@ func registerContextTools(s *mcp.Server, p *provider) {
 		PR      int    `json:"pr,omitempty"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_read",
 		Description: "Read a document from main, a revision or a PR. Returns base_rev/hash for optimistic writes and pending PRs touching the area.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in readIn) (*mcp.CallToolResult, any, error) {
@@ -684,7 +696,7 @@ func registerContextTools(s *mcp.Server, p *provider) {
 		WIP     bool   `json:"wip,omitempty"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_history",
 		Description: "Show merged versions, authors, PRs and agent involvement; optionally local changeset commits.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in historyIn) (*mcp.CallToolResult, any, error) {
@@ -746,7 +758,7 @@ func registerContextTools(s *mcp.Server, p *provider) {
 		PR      int    `json:"pr,omitempty"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_diff",
 		Description: "Diff document versions or a PR against main.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in diffIn) (*mcp.CallToolResult, any, error) {
@@ -786,7 +798,7 @@ func registerContextTools(s *mcp.Server, p *provider) {
 		return textResult(map[string]any{"path": rel, "diff": out})
 	})
 
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_pull",
 		Description: "Fetch origin/main and fast-forward the local mirror. Use when docs_get_context reports a stale mirror.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in struct{}) (*mcp.CallToolResult, any, error) {

@@ -19,7 +19,7 @@ func registerChangeTools(s *mcp.Server, p *provider) {
 		Area    string `json:"area,omitempty" jsonschema:"org..., teams/<team>... or projects/<owner>/<repo>...; defaults to the current project"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_change_start",
 		Description: "Start a named changeset and make it active for its area. Optional, since writes auto-create one.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in startIn) (*mcp.CallToolResult, any, error) {
@@ -42,7 +42,7 @@ func registerChangeTools(s *mcp.Server, p *provider) {
 		PR      int    `json:"pr"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_change_join",
 		Description: "Join an open shared changeset/PR and make it active for its area.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in joinIn) (*mcp.CallToolResult, any, error) {
@@ -64,7 +64,7 @@ func registerChangeTools(s *mcp.Server, p *provider) {
 		Area    string `json:"area,omitempty"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_write",
 		Description: "Create or replace a doc in the active changeset. Enforces YAML frontmatter and canonical paths; base_rev is required for existing files.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in writeIn) (*mcp.CallToolResult, any, error) {
@@ -117,7 +117,7 @@ func registerChangeTools(s *mcp.Server, p *provider) {
 		Area        string      `json:"area,omitempty"`
 		Project     string      `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_patch",
 		Description: "Apply targeted find/replace edits or a single-file unified diff to an existing doc and commit locally. Enforces frontmatter and canonical paths; prefer this over whole-file replacement.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in patchIn) (*mcp.CallToolResult, any, error) {
@@ -185,7 +185,7 @@ func registerChangeTools(s *mcp.Server, p *provider) {
 		Area    string `json:"area,omitempty"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_move",
 		Description: "Move or rename a document inside its area with git mv. Requires base_rev, validates the destination layout and rejects collisions.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in moveIn) (*mcp.CallToolResult, any, error) {
@@ -229,7 +229,7 @@ func registerChangeTools(s *mcp.Server, p *provider) {
 		Area    string `json:"area,omitempty"`
 		Project string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_delete",
 		Description: "Delete a document in the active changeset. Requires base_rev so a newer edit is never removed accidentally.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in deleteIn) (*mcp.CallToolResult, any, error) {
@@ -267,7 +267,7 @@ func registerChangeTools(s *mcp.Server, p *provider) {
 		Changeset string `json:"changeset,omitempty"`
 		Project   string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_change_sync",
 		Description: "Commit, integrate the remote branch, push and create/update the draft PR. Refuses to push when the PR is ready; call docs_change_reopen first.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in syncIn) (*mcp.CallToolResult, any, error) {
@@ -287,7 +287,7 @@ func registerChangeTools(s *mcp.Server, p *provider) {
 		Summary   string `json:"summary,omitempty"`
 		Project   string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_change_submit",
 		Description: "Sync, lint changed docs, preflight code references, rebase on main if needed, write the PR description, mark the PR ready and freeze the changeset. Lint/code-reference errors keep the PR draft. Refuses if already ready.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in submitIn) (*mcp.CallToolResult, any, error) {
@@ -324,7 +324,7 @@ func registerChangeTools(s *mcp.Server, p *provider) {
 		Changeset string `json:"changeset,omitempty"`
 		Project   string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_change_reopen",
 		Description: "Return a ready PR to draft so further syncs may push commits.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in reopenIn) (*mcp.CallToolResult, any, error) {
@@ -343,7 +343,7 @@ func registerChangeTools(s *mcp.Server, p *provider) {
 		Changeset string `json:"changeset,omitempty"`
 		Project   string `json:"project,omitempty"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_change_status",
 		Description: "Show local dirty/committed state, PR state, checks, review decision, unresolved threads, mergeability, frozen state and sync errors.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in statusIn) (*mcp.CallToolResult, any, error) {
@@ -384,7 +384,7 @@ func registerChangeTools(s *mcp.Server, p *provider) {
 	type commentsIn struct {
 		PR int `json:"pr"`
 	}
-	addTool(s, &mcp.Tool{
+	addTool(s, p, &mcp.Tool{
 		Name:        "docs_review_comments",
 		Description: "Fetch review comments so the agent can address feedback in the same changeset.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in commentsIn) (*mcp.CallToolResult, any, error) {

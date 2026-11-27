@@ -69,6 +69,10 @@ If you are unsure, report privately and let the maintainers triage it.
 
 - **Local-first.** Companion is a CLI and a stdio MCP server. It does not open a
   network port, run a daemon, or send telemetry.
+- **Local usage history.** Completed MCP tool executions record only a format
+  version, invocation time, client name, tool name, and failure indicator in a
+  private local journal. Client identity is self-reported, not authentication;
+  prompts, arguments, responses, credentials, and repository paths are not stored.
 - **Read-only main.** The local mirror of `main` is made read-only; edits happen
   in changeset worktrees and become branches and pull requests.
 - **Agents cannot merge.** MCP tools can propose and update documentation

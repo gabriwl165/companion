@@ -1,8 +1,8 @@
 # Architecture
 
 Repo Companion is a local Go CLI with an embedded MCP server. Git and GitHub
-remain the source of truth; the local state directory is a cache and a set of
-working trees.
+remain the source of truth for documentation; the local state directory holds
+caches, working trees, and local-only usage history.
 
 ```mermaid
 flowchart LR
@@ -70,7 +70,11 @@ PR status, review comments, or a PR-specific read.
   private file modes.
 - **Concurrency:** per-area file locks serialize Git work; `state.json` has its
   own cross-process lock and is rebuildable.
-- **No daemon:** no listener, polling loop, or telemetry.
+- **Local usage:** a separate, private append-only journal records completed MCP
+  tool executions. Its cross-process lock is independent of changeset state;
+  recording failures never change tool results. History is best effort and
+  cannot be rebuilt from the docs store.
+- **No daemon:** no listener, polling loop, or outbound telemetry.
 
 ## Package map
 
@@ -93,6 +97,7 @@ PR status, review comments, or a PR-specific read.
 | `internal/export` | Managed AGENTS.md, llms.txt, and JSON/Markdown bundles |
 | `internal/secret` | Local credential heuristic |
 | `internal/state` | Rebuildable changeset cache |
+| `internal/usage` | Local MCP execution history and time-filtered usage reports |
 | `internal/version` | Shared CLI/MCP build version |
 
 ## Storage layout
@@ -105,7 +110,9 @@ PR status, review comments, or a PR-specific read.
 ├── cache/code/<repo>/<commit>/ # code index snapshots
 ├── archive/                   # opt-in patches for discarded changesets
 ├── locks/                     # per-area locks
-└── state.json                 # rebuildable changeset cache
+├── state.json                 # rebuildable changeset cache
+├── usage.jsonl                # local-only MCP usage history, not a cache
+└── usage.jsonl.lock            # usage journal cross-process lock
 ```
 
 User configuration lives at `~/.config/companion/config.yaml` on Unix-like
